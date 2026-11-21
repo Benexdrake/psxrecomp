@@ -998,6 +998,7 @@ static int submit_native_gpu_linked_list(void) {
     uint32_t rank = UINT32_MAX;
     uint64_t host_nodes = 0, host_words = 0;
     int terminated = 0;
+    gpu_ws_notify_list_kick(head);
     gpu_ws_native_list_begin();
     while (node_count < max_nodes) {
         address = psx_mod_gpu_dma_resolve_address(address);

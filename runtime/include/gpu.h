@@ -555,6 +555,11 @@ int gpu_ws_gte_sxy_recent(int32_t x, int32_t y);
  * Tag the complete background composite before submitting its ordering table.
  * The caller proves background identity/coverage; no guest data is modified. */
 void gpu_ws_tag_background_prim(uint32_t prim);
+/* Optional title hook run with the ordering-table head each time a GPU linked
+ * list is kicked (before any packet reaches GP0), so a title can tag packets
+ * for native-wide handling. Emulation thread only; NULL clears. */
+void gpu_ws_set_list_kick_hook(void (*hook)(uint32_t start_addr));
+void gpu_ws_notify_list_kick(uint32_t start_addr);
 /* Always-on counters for the explicit HUD-anchor and background tag tables:
  * how many tags a title plugin offered, how many were rejected at insert
  * (native-wide not configured / unreadable or unsupported command), and why

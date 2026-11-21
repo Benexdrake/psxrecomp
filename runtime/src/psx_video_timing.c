@@ -1,4 +1,16 @@
 #include "psx_video_timing.h"
+#include <stdlib.h>
+
+/* Enhancement: PAL titles run on NTSC (60 Hz) timing by default; PSX_FORCE_60HZ=0 restores 50 Hz. */
+static int force_60hz(void) {
+    static int cached = -1;
+    if (cached < 0) {
+        const char* e = getenv("PSX_FORCE_60HZ");
+        cached = (e && e[0] == '0' && !e[1]) ? 0 : 1;
+    }
+    return cached;
+}
+
 
 uint32_t g_psx_vblank_cycles   = PSX_VBLANK_CYCLES_NTSC;
 uint32_t g_psx_hblank_cycles   = PSX_HBLANK_CYCLES_NTSC;
