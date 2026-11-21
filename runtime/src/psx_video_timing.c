@@ -7,8 +7,20 @@ uint32_t g_psx_lines_per_frame = PSX_LINES_PER_FRAME_NTSC;
 static int      s_pal;
 static uint32_t s_generation;
 
+#include <stdlib.h>
+
+/* Enhancement: PAL titles run on NTSC (60 Hz) timing by default; PSX_FORCE_60HZ=0 restores 50 Hz. */
+static int force_60hz(void) {
+    static int cached = -1;
+    if (cached < 0) {
+        const char* e = getenv("PSX_FORCE_60HZ");
+        cached = (e && e[0] == '0' && !e[1]) ? 0 : 1;
+    }
+    return cached;
+}
+
 int psx_video_timing_set_pal(int pal) {
-    pal = pal ? 1 : 0;
+    pal = (pal && !force_60hz()) ? 1 : 0;
     if (pal == s_pal)
         return 0;
     s_pal = pal;
