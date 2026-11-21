@@ -3772,7 +3772,10 @@ static int cdrom_snap_parse(PstR *r, int extended) {
         !pst_r_i32(r, &xa_hist_r[0]) || !pst_r_i32(r, &xa_hist_r[1]))
         return 0;
     R8(xa_stream_file); R8(xa_stream_channel); R8(xa_stream_coding); RI(xa_stream_active);
-    RI(g_disc_speed_divisor); RI(g_game_divisor); RI(g_instant_max_per_frame);
+    /* Disc speed is player configuration, not machine state: consume the saved
+     * values but keep the live ones, or a restored boot snapshot silently
+     * reverts the configured CD speed. */
+    if (!pst_r_i32(r, &i) || !pst_r_i32(r, &i) || !pst_r_i32(r, &i)) return 0;
     R8(pending.cmd); RI(pending.pending); RI(pending_rem); RI(pending.phase);
     R8(queued_cmd.cmd); RB(queued_cmd.params); RI(queued_cmd.param_count); RI(queued_cmd.pending);
     R8(pending_dataready); R8(pending_dataready_stat);

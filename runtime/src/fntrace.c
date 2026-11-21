@@ -49,7 +49,12 @@ int fntrace_is_game_started(void) { return s_game_started; }
 void (*g_fntrace_game_load_hook)(void) = 0;
 
 void fntrace_restore_game_started(int started) {
-    if (started && !s_game_started && g_fntrace_game_load_hook) g_fntrace_game_load_hook();
+    if (started && !s_game_started) {
+        if (g_fntrace_game_load_hook) g_fntrace_game_load_hook();
+        /* A restored post-entry state never passes fntrace_mark_game_started,
+         * so the configured disc speed must be applied here too. */
+        cdrom_notify_game_started();
+    }
     s_game_started = started != 0;
 }
 

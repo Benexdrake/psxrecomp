@@ -10192,6 +10192,20 @@ static NetplayVblankEpilogue sdl_vblank_present_body(void) {
      * old fast_boot snapshot restore; all guest timing is authentic. */
     if (psx_bios_hle_boot_turbo_active())
         turbo_loads_active = 1;
+    /* Memory-card scans (save load): the BIOS card driver issues one sector per
+     * ~2 vblanks, so a full scan takes seconds at wall-clock pace. Run those
+     * vblanks unpaced while sector reads are moving (+ a short hold). */
+    {
+        extern volatile uint32_t g_psx_card_read_activity;
+        static uint32_t s_card_seen = 0;
+        static int s_card_hold = 0;
+        const uint32_t now_reads = g_psx_card_read_activity;
+        if (now_reads != s_card_seen) { s_card_seen = now_reads; s_card_hold = 4; }
+        else if (s_card_hold > 0) s_card_hold--;
+        if (s_card_hold > 0 && fntrace_is_game_started() && !psx_netplay_active() &&
+            !psx_selfcheck_resim_active())
+            turbo_loads_active = 1;
+    }
     probe_turbo = turbo_loads_active;
 
     load_transition_note(cdrom_data_read_active(), logical_load_active,

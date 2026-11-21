@@ -573,6 +573,9 @@ uint32_t sio_get_seq(void) {
     return sio_trace_seq;
 }
 
+/* Count of memory-card sector reads; main.cpp runs card scans unpaced while it moves. */
+volatile uint32_t g_psx_card_read_activity = 0;
+
 int sio_card_protocol_active(void) {
     /* Active if either slot has an in-flight protocol, or the working
      * mc_state is non-idle. */
@@ -2118,6 +2121,7 @@ static void mc_process_byte(uint8_t tx_byte) {
         mc_sector = ((uint16_t)mc_sector_msb << 8) | mc_sector_lsb;
 
         if (mc_cmd == 0x52) {
+            g_psx_card_read_activity++;
             if (mc_sector < MEMCARD_SECTORS) {
                 memcard_read_sector(mc_slot, mc_sector, mc_data);
             } else {
