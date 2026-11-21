@@ -7329,7 +7329,17 @@ void gpu_ws_native_list_end(void) {
     ws_ui_prepass_finalize(ws_native_list.max_rank);
 }
 
+static void (*ws_list_kick_hook)(uint32_t start_addr);
+void gpu_ws_set_list_kick_hook(void (*hook)(uint32_t start_addr)) {
+    ws_list_kick_hook = hook;
+}
+
+void gpu_ws_notify_list_kick(uint32_t start_addr) {
+    if (ws_list_kick_hook) ws_list_kick_hook(start_addr);
+}
+
 void gpu_ws_prepass_linked_list(uint32_t start_addr) {
+    gpu_ws_notify_list_kick(start_addr);
     ws_ui_prepass_count = 0;
     ws_ui_prepass_nodes_reset();
     ws_ui_prepass_rank = 0xFFFFu;
