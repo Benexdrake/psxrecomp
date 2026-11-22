@@ -7878,6 +7878,24 @@ static void gp0_execute_command(void) {
     else if (opcode >= 0x80 && opcode <= 0xDF) gp0_copy_count++;
     else if (opcode >= 0xE1 && opcode <= 0xE6) gp0_env_count++;
 
+    /* Debug test aid: PSX_DEBUG_FILL_ONLY=1 drops every drawing primitive so only the
+     * clear FillRect (the layer behind all graphics) remains; PSX_DEBUG_FILL_RGB=BBGGRR (hex, GP0
+     * word order: blue is the high byte, so 0000FF is RED and FF0000 is BLUE) recolours that FillRect. Unset = no effect. */
+    {
+        static int dbg_init = 0, dbg_fill_only = 0, dbg_rgb_set = 0;
+        static uint32_t dbg_rgb = 0;
+        if (!dbg_init) {
+            const char* fo = getenv("PSX_DEBUG_FILL_ONLY");
+            const char* rgb = getenv("PSX_DEBUG_FILL_RGB");
+            dbg_fill_only = (fo && fo[0] == '1');
+            if (rgb && rgb[0]) { dbg_rgb = (uint32_t)strtoul(rgb, NULL, 16) & 0xFFFFFFu; dbg_rgb_set = 1; }
+            dbg_init = 1;
+        }
+        if (dbg_fill_only && opcode >= 0x20 && opcode <= 0x7F) return;
+        if (dbg_rgb_set && opcode == 0x02)
+            gp0_cmd_buf[0] = (gp0_cmd_buf[0] & 0xFF000000u) | dbg_rgb;
+    }
+
     if (opcode >= 0x20 && opcode <= 0x7F && ws_shared_ui_packet()) {
         for (ws_shared_ui_copy = 0; ws_shared_ui_copy < 2; ws_shared_ui_copy++)
             gp0_dispatch_command(opcode);
