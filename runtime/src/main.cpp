@@ -716,7 +716,10 @@ static bool host_hotkey_input_focused(void) {
 
 static double g_fast_forward_preference = 4.0;
 static bool g_fast_forward_toggle_mode = false;
+/* Slow motion (Shift+F9 cycles 0.5x -> 0.1x -> 0.01x -> off); 0 = off. */
+static double g_slow_motion_factor = 0.0;
 static double manual_fast_forward_multiplier(void) {
+    if (g_slow_motion_factor > 0.0) return g_slow_motion_factor;
     return psx_fast_forward_target(g_fast_forward_preference,
                                   std::getenv("PSX_FAST_FORWARD_SPEED"));
 }
@@ -8878,7 +8881,30 @@ static void fast_forward_toggle_flip(void) {
     host_osd_push(msg, 900);
 }
 
+/* Slow motion: Shift+F9 or pad Select + L3 (rising edge) cycles
+ * 50% -> 10% -> 1% -> off. */
+static void slow_motion_cycle(void) {
+    char msg[40];
+    g_slow_motion_factor = g_slow_motion_factor == 0.0 ? 0.5 :
+        g_slow_motion_factor > 0.4 ? 0.1 :
+        g_slow_motion_factor > 0.05 ? 0.01 : 0.0;
+    g_manual_turbo_latched = 0;
+    if (g_slow_motion_factor > 0.0)
+        snprintf(msg, sizeof(msg), "Slow motion: %g%%", g_slow_motion_factor * 100.0);
+    else
+        snprintf(msg, sizeof(msg), "Slow motion: off");
+    host_osd_push(msg, 900);
+}
+
 static void fast_forward_toggle_poll_buttons(void) {
+    {
+        static int slow_was_down;
+        const int slow_down = p1_host_present() &&
+            p1_host_button_down(nullptr, SDL_CONTROLLER_BUTTON_BACK) &&
+            p1_host_button_down(nullptr, SDL_CONTROLLER_BUTTON_LEFTSTICK);
+        if (slow_down && !slow_was_down) slow_motion_cycle();
+        slow_was_down = slow_down;
+    }
     static int was_down;
     int down = hotkey_shortcut_down(PSX_ASSIST_BIND_FAST_FORWARD_TOGGLE, g_hotkey_pad_fast_forward_toggle);
     static int primary_was_down;
@@ -9707,6 +9733,9 @@ static bool drain_host_events() {
                 else
                     savestate_submit_slot(SAVESTATE_QUICK_SLOT, save);
             }
+            else if (!key_repeat && key == SDLK_F9 && (mod & KMOD_SHIFT)) {
+                slow_motion_cycle();
+            }
             else if (!key_repeat &&
                      host_keymap_match_event(HOST_KEYMAP_TURBO_TOGGLE,
                                              (int)key, (int)scancode,
@@ -10270,7 +10299,7 @@ static NetplayVblankEpilogue sdl_vblank_present_body(void) {
         const bool kb_turbo = host_hotkey_input_focused() &&
             host_keymap_down(HOST_KEYMAP_TURBO, host_keys, (int)SDL_GetModState()) &&
             !steam_desktop_echo_guard();
-        manual_turbo_requested = g_manual_turbo_latched || (!g_fast_forward_toggle_mode &&
+        manual_turbo_requested = g_slow_motion_factor > 0.0 || g_manual_turbo_latched || (!g_fast_forward_toggle_mode &&
             (kb_turbo || hotkey_shortcut_down(PSX_ASSIST_BIND_FAST_FORWARD,
                                              g_hotkey_pad_fast_forward)));
     }
@@ -10372,7 +10401,7 @@ static NetplayVblankEpilogue sdl_vblank_present_body(void) {
                 host_osd_push(msg, 900);
             }
             turbo_was_down = 1;
-            if (mult >= 1.0 && g_frame_period_ms > 0.0) {
+            if (mult > 0.0 && g_frame_period_ms > 0.0) {
                 uint64_t perf_start = runtime_perf_section_begin();
                 frame_pacer_wait(&s_frame_pacer,
                                  g_frame_period_ms / (double)mult);

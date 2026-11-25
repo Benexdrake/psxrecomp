@@ -303,6 +303,8 @@ void gpu_ws_set_auto_ui_squash(int on) {
     ws_auto_ui_transform_count = 0;
 }
 static int ws_clear_reveal = 0;
+static uint32_t ws_idle_flips = 0;   /* Display-Flips seit dem letzten Primitive */
+static int ws_idle_cleared = 0;
 static int g_mmx6_void_sides = 0;
 static uint32_t g_mmx6_void_generation = 1;
 void gpu_ws_set_clear_reveal(int on) { ws_clear_reveal = on ? 1 : 0; }
@@ -4583,6 +4585,12 @@ void gpu_vblank_flush_present(void) {
 
 void gpu_vblank_tick(void) {
     lcf ^= 1;
+    /* Standbild ohne jedes Primitive (z. B. Ladebild): die synthetischen Seitenraender behalten sonst die
+     * letzte Clear-Farbe des Spiels. Nach 4 VBlanks ohne Primitive einmal schwarz leeren. */
+    if (++ws_idle_flips >= 4 && !ws_idle_cleared && ws_native_wide_active()) {
+        ws_clear_all_reveal_margins();
+        ws_idle_cleared = 1;
+    }
     gpu_timeline_note(GTL_VBLANK, lcf, 0);
     /* GPUSTAT.13 (interlace FIELD): on real hardware this alternates per
      * field while GP1(08h) vertical interlace is on, in antiphase with the
@@ -7831,6 +7839,7 @@ static void gp0_execute_command(void) {
     uint8_t opcode = (gp0_cmd_buf[0] >> 24) & 0xFF;
     gp0_opcode_count[opcode]++;
     gp0_ring_record(gp0_cmd_buf, gp0_words_needed);
+    if (opcode >= 0x20 && opcode <= 0x7F) { ws_idle_flips = 0; ws_idle_cleared = 0; }
     extern void ws_bg_phase_note(uint32_t op);
     ws_bg_phase_note(opcode);   /* native-wide 2D-backdrop stretch: background-phase latch */
     if (ws_view_camera_addr || ws_view_manual || g_bg2d_host_size) {

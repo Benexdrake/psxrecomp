@@ -18,6 +18,9 @@ static inline double psx_fast_forward_target(double preference, const char *env)
     char *end;
     const double value = strtod(env, &end);
     /* Preserve the developer override's wider range without truncating it. */
+    /* Slow motion (0.01..0.99) is allowed via the env override only. */
+    if (end != env && !*end && isfinite(value) && value >= 0.01 && value < 1.0)
+        return floor(value * 100.0 + 0.5) / 100.0;
     return end != env && !*end && isfinite(value) && value >= 1.0 && value <= 16.0
         ? floor(value * 10.0 + 0.5) / 10.0 : psx_fast_forward_preference(preference);
 }
